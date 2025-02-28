@@ -16,7 +16,8 @@
 
 package org.alephium.explorer.service
 
-import java.time.{Instant, LocalTime, ZonedDateTime, ZoneOffset}
+import java.time.LocalTime
+import scala.concurrent.duration._
 
 import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
@@ -74,14 +75,14 @@ case object HolderService extends HolderService with StrictLogging {
       databaseConfig: DatabaseConfig[PostgresProfile],
       scheduler: Scheduler
   ): Future[Unit] = {
-    Future.successful {
-      scheduler.scheduleDailyAt(
-        taskId = HolderService.productPrefix,
-        at = ZonedDateTime
-          .ofInstant(Instant.EPOCH, ZoneOffset.UTC)
-          .plusSeconds(scheduleTime.toSecondOfDay().toLong)
-      )(syncOnce())
-    }
+    logger.info(s"HolderServiceSync $scheduleTime starting at scheduled time.")
+
+    val scheduledFuture = scheduler.scheduleLoop(
+      taskId = HolderService.productPrefix,
+      interval = 1.minute
+    ) (syncOnce())
+
+    scheduledFuture.map(_ => ()).flatMap(_ => Future.unit)
   }
 
   def syncOnce()(implicit
